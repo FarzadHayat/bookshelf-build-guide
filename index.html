@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+<title>Bookshelf Build Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: tablet-first workbench. 3D stage fills the left (or top in portrait), instruction card on the right (or below). */
+:root{
+  --bg:#F1F3F4; --stage:#E3E8EB; --floor:#D3DADF; --panel:#FFFFFF; --ink:#17202A; --muted:#56616D;
+  --line:#D4DADF; --accent:#0D6870; --accent-ink:#FFFFFF; --mark:#E99E1C; --mark-soft:#FCEFD6; --mark-ink:#3B2600;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10151A; --stage:#172028; --floor:#202B34; --panel:#151C22; --ink:#E7ECF0; --muted:#9BA7B2;
+  --line:#29343E; --accent:#55B9C1; --accent-ink:#06282B; --mark:#F2B13E; --mark-soft:#3A2C12; --mark-ink:#2A1B00; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151A; --stage:#172028; --floor:#202B34; --panel:#151C22; --ink:#E7ECF0; --muted:#9BA7B2;
+  --line:#29343E; --accent:#55B9C1; --accent-ink:#06282B; --mark:#F2B13E; --mark-soft:#3A2C12; --mark-ink:#2A1B00; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;overflow:hidden}
+button,input{font:inherit}
+.app{height:100%;display:grid;grid-template-rows:minmax(260px,52%) 1fr}
+@media (min-width:760px) and (orientation:landscape){.app{grid-template-rows:none;grid-template-columns:1fr minmax(340px,400px)}}
+
+/* Stage */
+.viewer{position:relative;min-height:0;background:var(--stage);overflow:hidden;touch-action:none}
+#c{display:block;width:100%;height:100%}
+#labels{position:absolute;inset:0;pointer-events:none}
+.lbl{position:absolute;left:0;top:0;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 6px;border-radius:13px;
+  display:grid;place-items:center;font:600 13px/1 var(--body);background:var(--panel);color:var(--ink);border:1.5px solid var(--ink);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.lbl.new{background:var(--mark);color:var(--mark-ink);border-color:var(--mark-ink)}
+.lbl.hw{border-radius:5px;font-style:italic;background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.vtools{position:absolute;top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px));display:flex;gap:8px}
+.vtools button{min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-weight:500;font-size:14px;cursor:pointer}
+.vtools button[aria-pressed="false"]{color:var(--muted)}
+.hint{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:10px;margin:0;font-size:12px;color:var(--muted);pointer-events:none}
+
+/* Panel */
+.panel{min-height:0;display:flex;flex-direction:column;background:var(--panel);border-top:1px solid var(--line)}
+@media (min-width:760px) and (orientation:landscape){.panel{border-top:0;border-left:1px solid var(--line)}}
+.pad{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{padding-block:14px 8px;display:flex;flex-direction:column;gap:8px}
+.eyebrow{margin:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stepnav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.stepnav button{flex:0 0 auto;min-width:44px;height:44px;padding:0 10px;border-radius:22px;border:1.5px solid var(--line);background:transparent;color:var(--muted);
+  font:700 18px/1 var(--display);cursor:pointer;font-variant-numeric:tabular-nums}
+.stepnav button.done{color:var(--ink);border-color:var(--ink)}
+.stepnav button[aria-current="step"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.body{flex:1;min-height:0;overflow-y:auto;padding-block:6px 16px}
+.kicker{margin:0;font:700 15px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+h2{margin:4px 0 12px;font:700 34px/1.05 var(--display);text-wrap:balance}
+.do{margin:0 0 16px;padding:0;list-style:none;counter-reset:d;display:flex;flex-direction:column;gap:10px}
+.do li{counter-increment:d;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.do li::before{content:counter(d);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--panel);font:700 16px/1 var(--display)}
+h3{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:16px;background:var(--bg);border:1px solid var(--line);font-size:14px}
+.chip b{min-width:24px;height:24px;border-radius:12px;display:grid;place-items:center;background:var(--mark);color:var(--mark-ink);font-size:13px;padding:0 4px}
+.chip.hwc b{border-radius:5px;background:var(--ink);color:var(--panel);font-style:italic}
+.chip em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
+.tip{margin:0;padding:10px 12px;border-radius:8px;background:var(--mark-soft);font-size:15px}
+.tip strong{font-weight:600}
+.warn{margin:10px 0 0;padding:10px 12px;border-radius:8px;border:1.5px solid var(--ink);font-size:15px}
+.hwtable{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;font-variant-numeric:tabular-nums}
+.hwtable td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.hwtable td:first-child{width:30px}
+.hwtable td:last-child{text-align:right;font-weight:600}
+.hwtable .l{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:5px;background:var(--ink);color:var(--panel);font-style:italic;font-weight:600}
+.anim{display:flex;align-items:center;gap:10px;padding-block:10px;border-top:1px solid var(--line)}
+.anim label{font-size:13px;color:var(--muted);white-space:nowrap}
+#scrub{flex:1;min-width:0;accent-color:var(--accent);height:32px}
+.navbar{display:flex;gap:10px;padding-block:0 max(12px,env(safe-area-inset-bottom,0px))}
+.navbar button,#replay{min-height:52px;border-radius:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);background:transparent;color:var(--ink);padding:0 16px}
+#replay{min-height:40px;border-radius:20px;font-size:14px}
+#next{flex:1;background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-size:17px}
+#prev{flex:0 0 auto}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+</style>
+
+<div class="app">
+  <section class="viewer" aria-label="3D model of the bookshelf for the current step">
+    <canvas id="c" role="img" aria-label="Interactive 3D view. Drag to rotate, pinch or scroll to zoom."></canvas>
+    <div id="labels" aria-hidden="true"></div>
+    <div class="vtools">
+      <button id="toggleLabels" type="button" aria-pressed="true">Labels</button>
+      <button id="resetView" type="button">Reset view</button>
+    </div>
+    <p class="hint">Drag to turn · pinch to zoom · two fingers to pan</p>
+  </section>
+
+  <aside class="panel" aria-label="Instructions">
+    <div class="top pad">
+      <p class="eyebrow">4 Tier Bookshelf · K:42633945</p>
+      <nav class="stepnav" id="stepnav" aria-label="Steps"></nav>
+    </div>
+    <div class="body pad" id="stepBody" aria-live="polite"></div>
+    <div class="anim pad">
+      <button id="replay" type="button">Replay</button>
+      <label for="scrub">Scrub</label>
+      <input id="scrub" type="range" min="0" max="1000" value="1000" aria-label="Animation progress">
+    </div>
+    <div class="navbar pad">
+      <button id="prev" type="button">Back</button>
+      <button id="next" type="button">Next</button>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const V = a => new THREE.Vector3(a[0], a[1], a[2]);
+const clamp = x => Math.max(0, Math.min(1, x));
+const ease = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Dimensions (cm, approximate) ---------- */
+const W = 60, D = 24, T = 1.6, HL = 72, HU = 70, K = 6, IW = W - 2*T;
+const X = W/2 - T/2;
+const yU0 = HL + T, yUtop = yU0 + HU, HTOT = yUtop + T;
+const y6u = yU0 + HU/2, y6l = (K + T + HL)/2, y10 = K + T/2, y7 = HL + T/2;
+const zKick = D/2 - T/2 - 1, zBack = -D/2 - 0.15, zWall = -13.5;
+
+const PARTS = {
+  '1':  {num:'1',  name:'Upper side',     size:[T,HU,D],  pos:[-X, yU0+HU/2, 0]},
+  '2':  {num:'2',  name:'Upper side',     size:[T,HU,D],  pos:[ X, yU0+HU/2, 0]},
+  '3':  {num:'3',  name:'Lower side',     size:[T,HL,D],  pos:[-X, HL/2, 0]},
+  '4':  {num:'4',  name:'Lower side',     size:[T,HL,D],  pos:[ X, HL/2, 0]},
+  '5':  {num:'5',  name:'Top board',      size:[W,T,D],   pos:[0, yUtop+T/2, 0]},
+  '6u': {num:'6',  name:'Shelf',          size:[IW,T,D],  pos:[0, y6u, 0]},
+  '6l': {num:'6',  name:'Shelf',          size:[IW,T,D],  pos:[0, y6l, 0]},
+  '7':  {num:'7',  name:'Middle board',   size:[W,T,D],   pos:[0, y7, 0]},
+  '8':  {num:'8',  name:'Kickboard',      size:[IW,K,T],  pos:[0, K/2, zKick]},
+  '10': {num:'10', name:'Bottom board',   size:[IW,T,D],  pos:[0, y10, 0]},
+  '9':  {num:'9',  name:'Lower back',     size:[W, y7-K, .3],    pos:[0, (K+y7)/2, zBack], back:true},
+  '11': {num:'11', name:'Upper back',     size:[W, HTOT-y7, .3], pos:[0, (y7+HTOT)/2, zBack], back:true},
+};
+const HW = {
+  a:{name:'Screw', size:'ø4×35 mm', qty:22}, b:{name:'Dowel', size:'ø6×30 mm', qty:20},
+  c:{name:'Long dowel', size:'ø6×50 mm', qty:4}, d:{name:'Cam bolt', size:'ø6×35 mm', qty:4},
+  e:{name:'Cam lock', size:'15×9.5 mm', qty:4}, f:{name:'L bracket', size:'28×28×12 mm', qty:1},
+  g:{name:'Short screw', size:'ø4×12 mm', qty:1}, h:{name:'Wall plug', size:'ø6×30 mm', qty:1},
+  i:{name:'Wall screw', size:'ø4×35 mm', qty:1}, j:{name:'Screw cap', size:'ø15 mm', qty:18},
+  k:{name:'Nail', size:'ø2×16 mm', qty:36}, l:{name:'Pin nail', size:'', qty:3},
+};
+const EXPLODE = {
+  '1':[-18,22,0], '2':[18,22,0], '5':[0,40,0], '6u':[0,22,14], '7':[0,12,0],
+  '3':[-18,0,0], '4':[18,0,0], '6l':[0,0,14], '10':[0,0,10], '8':[0,0,26], '9':[0,0,-30], '11':[0,22,-30]
+};
+
+/* ---------- Hardware item helpers ---------- */
+const it = (type, pos, dir, o={}) => Object.assign({type, pos, dir, dist:5, phase:[0,.3]}, o);
+const sideScrews = (ys, zs, phase=[.72,1]) => ys.flatMap(y => [-1,1].flatMap(s =>
+  zs.map(z => it('a', [s*(W/2-1.75), y, z], [s,0,0], {dist:9, phase}))));
+const sideDowels = (ys, zs=[-3,3]) => ys.flatMap(y => [-1,1].flatMap(s =>
+  zs.map(z => it('b', [s*IW/2, y, z], [s,0,0], {dist:5}))));
+const UPPER = ['1','2','5','6u','7'], LOWER = ['3','4','6l','10','8'];
+
+const nails = [];
+[[yU0+3, yUtop-3, 5], [K+4, HL-6, 5]].forEach(([a,b,n]) => { for (let i=0;i<n;i++){ const y=a+(b-a)*i/(n-1); [-X,X].forEach(x=>nails.push([x,y])); } });
+[yUtop+T/2, y6u, y10, y6l].forEach(y => [-18,0,18].forEach(x => nails.push([x,y])));
+[[-24,y7-.4],[24,y7-.4],[-24,y7+.4],[24,y7+.4]].forEach(p => nails.push(p));
+const capPos = [
+  ...[y6u, y6l, y10].flatMap(y => [-1,1].flatMap(s => [-7,7].map(z => [[s*(W/2+.06), y, z],[s,0,0]]))),
+  ...[-1,1].map(s => [[s*(W/2+.06), K/2, zKick],[s,0,0]]),
+  ...[-1,1].flatMap(s => [-7,7].map(z => [[s*X, HTOT+.06, z],[0,1,0]])),
+];
+
+/* ---------- Steps ---------- */
+const STEPS = [
+ { nav:'Parts', kicker:'Before you start', title:'Check your parts', explode:true,
+   show:Object.keys(PARTS), add:[], hw:[], cam:[.55,.35,1],
+   do:['Lay the boards out on a rug or the flattened box so nothing gets scratched.',
+       'Match each board to the numbers in the model. Both shelves are number 6.',
+       'Sort the hardware by letter using the list below.'],
+   parts:true,
+   tip:'You need a Phillips screwdriver and a hammer. Step 8 also needs a drill.' },
+ { nav:'1', title:'Kickboard onto bottom board', show:['8','10'], add:['8','10'],
+   move:{'8':[0,-12,0]}, movePhase:[.3,.75], cam:[.8,.5,1], useParts:['8','10'],
+   hw:[ ...[-12,12].map(x => it('b',[x,K,zKick],[0,-1,0],{dist:5})),
+        ...[-1,1].map(s => it('b',[s*IW/2,K/2,zKick],[s,0,0],{dist:5})) ],
+   do:['Push 4 dowels (b) into kickboard 8: two along the long edge, one in each end.',
+       'Press the long edge of 8 onto the front underside of bottom board 10.',
+       'Set this piece aside. It goes in at step 5.'],
+   tip:'If a dowel is tight, tap it in gently with the hammer.' },
+ { nav:'2', title:'Sides onto the upper shelf', show:['1','2','6u'], add:['1','2','6u'],
+   move:{'1':[-14,0,0],'2':[14,0,0]}, movePhase:[.32,.7], cam:[.7,.55,1], useParts:['1','2','6'],
+   hw:[...sideDowels([y6u]), ...sideScrews([y6u],[-7,7])],
+   do:['Push 2 dowels (b) into each end of one shelf 6.',
+       'Fit side 1 on one end and side 2 on the other.',
+       'Drive 2 screws (a) through each side into the shelf.'],
+   tip:'Build the upper half lying on its back. The pre-drilled holes in the sides face inward.' },
+ { nav:'3', title:'Top board', show:['1','2','6u','5'], add:['5'],
+   move:{'5':[0,16,0]}, movePhase:[.32,.7], cam:[.6,.95,1], useParts:['5'],
+   hw:[ ...[-1,1].flatMap(s => [-3,3].map(z => it('b',[s*X,yUtop,z],[0,1,0]))),
+        ...[-1,1].flatMap(s => [-7,7].map(z => it('a',[s*X,HTOT-1.75,z],[0,1,0],{dist:9,phase:[.72,1]}))) ],
+   do:['Push 2 dowels (b) into the top edge of side 1 and of side 2.',
+       'Place top board 5 over the dowels.',
+       'Drive 4 screws (a) down through 5 into the sides.'],
+   tip:'Keep the front edges flush before you tighten.' },
+ { nav:'4', title:'Middle board', show:['1','2','6u','5','7'], add:['7'],
+   move:{'7':[0,-16,0]}, movePhase:[.32,.7], cam:[.7,-.45,1], useParts:['7'],
+   hw:[ ...[-1,1].flatMap(s => [-10,10].map(z => it('c',[s*X,yU0+1.7-2.5,z],[0,-1,0],{dist:7}))),
+        ...[-1,1].flatMap(s => [-6,6].map(z => it('a',[s*X,HL+1.75,z],[0,-1,0],{dist:9,phase:[.72,1]}))) ],
+   do:['Push 2 long dowels (c) into the bottom edge of each side.',
+       'Fit middle board 7 over them. Their ends stick out the other side.',
+       'Drive 4 screws (a) through 7 into the sides.'],
+   tip:'Leave the dowel ends sticking out. They line up the lower half in step 6. The upper half is now done.' },
+ { nav:'5', title:'Build the lower half', show:LOWER, add:['3','4','6l'],
+   move:{'3':[-14,0,0],'4':[14,0,0]}, movePhase:[.32,.7], cam:[.8,.45,1], useParts:['3','4','6','10'],
+   hw:[ ...[-1,1].map(s => it('b',[s*IW/2,K/2,zKick],[s,0,0],{dist:0,phase:[0,0],already:true})),
+        ...sideDowels([y6l, y10]),
+        ...sideScrews([y6l, y10],[-7,7]),
+        ...[-1,1].map(s => it('a',[s*(W/2-1.75),K/2,zKick],[s,0,0],{dist:9,phase:[.72,1]})) ],
+   do:['Push 2 dowels (b) into each end of the second shelf 6 and of bottom board 10.',
+       'Fit side 3 and side 4 onto the shelf, the bottom board and the kickboard ends.',
+       'Drive 5 screws (a) through each side: 2 into the shelf, 2 into the bottom board, 1 into the kickboard.'],
+   tip:'The big round cam-lock holes in 3 and 4 go at the top, facing inward.' },
+ { nav:'6', title:'Join the two halves', show:[...UPPER, ...LOWER], add:[],
+   move:Object.fromEntries(UPPER.map(id => [id,[0,28,0]])), movePhase:[.35,.72], cam:[.95,.35,1], useParts:['7','3','4'],
+   hw:[ ...[-1,1].flatMap(s => [-3,3].map(z => it('e',[s*(W/2-T+.475),70,z],[-s,0,0],{dist:6,spin:[.78,1]}))),
+        ...[-1,1].flatMap(s => [-3,3].map(z => it('d',[s*X,73-1.75,z],[0,1,0],{dist:4,follow:[0,28,0]}))),
+        ...[-1,1].flatMap(s => [-10,10].map(z => it('c',[s*X,yU0+1.7-2.5,z],[0,-1,0],{dist:0,phase:[0,0],follow:[0,28,0],already:true}))) ],
+   do:['Drop a cam lock (e) into each big round hole near the top of sides 3 and 4. Turn the open slot toward the top edge.',
+       'Screw the 4 cam bolts (d) by hand into the holes under middle board 7.',
+       'Lower the upper half onto the lower half so the dowels and bolts slide into the holes.',
+       'Turn each cam lock with the screwdriver until it pulls the joint tight.'],
+   tip:'Get a second person to hold the upper half while you line it up.' },
+ { nav:'7', title:'Back panels', show:[...UPPER, ...LOWER, '9','11'], add:['9','11'],
+   move:{'9':[0,0,-26],'11':[0,0,-26]}, movePhase:[.05,.5], cam:[-.55,.45,-1], useParts:['9','11'],
+   hw:[ ...nails.map(([x,y]) => it('k',[x,y,-D/2-.3+.8],[0,0,-1],{dist:4,phase:[.55,.95]})),
+        ...[-12,0,12].map(x => it('l',[x,y7,-D/2-.3+1],[0,0,-1],{dist:4,phase:[.6,1]})) ],
+   do:['Lay the unit face down. Check it is square: both diagonals should measure the same.',
+       'Place upper back 11 and lower back 9, lining their edges up with the sides.',
+       'Nail around the edges and along each shelf with the 36 small nails (k). Put the 3 pin nails (l) along the middle where the panels meet.'],
+   tip:'Pencil a line across the back where each shelf sits so the nails hit wood.' },
+ { nav:'8', title:'Anchor to the wall', show:[...UPPER, ...LOWER, '9','11'], add:[], wall:true,
+   cam:[1,.5,.6], fitBox:[[-14,HTOT-16,-16],[14,HTOT+6,4]], useParts:['5'],
+   hw:[ it('f',[0,HTOT,zWall],[0,1,0],{dist:10,phase:[.05,.35],raw:true}),
+        it('g',[0,HTOT+.2-.6,-12.1],[0,1,0],{dist:6,phase:[.3,.5]}),
+        it('h',[0,HTOT+1.6,zWall-1.5],[0,0,1],{dist:8,phase:[.45,.65]}),
+        it('i',[0,HTOT+1.6,zWall+.2-1.75],[0,0,1],{dist:9,phase:[.65,.9]}) ],
+   do:['Stand the unit up against the wall where it will live.',
+       'Screw L bracket f onto the back of top board 5 with screw g.',
+       'Mark the wall through the bracket, drill a 6 mm hole and push in wall plug h.',
+       'Fix the bracket to the wall with screw i.'],
+   tip:'Check for wires and pipes before drilling. On plasterboard, screw into a stud or use a plasterboard anchor.',
+   warn:'Tall furniture can tip over. Always anchor it, especially with kids around.' },
+ { nav:'Caps', kicker:'Finishing touch', title:'Cover the screw heads', show:[...UPPER, ...LOWER, '9','11'], add:[],
+   cam:[.75,.4,1], useParts:[],
+   hw:[ it('f',[0,HTOT,zWall],[0,1,0],{dist:0,phase:[0,0],raw:true,already:true}),
+        ...capPos.map(([p,d]) => it('j',p,d,{dist:5,phase:[.1,.9]})) ],
+   do:['Press a cap (j) over each visible screw head: 7 on each side and 4 on top.',
+       'Load it up. Each shelf holds up to 5 kg.'],
+   tip:'Put heavier things on the lower shelves. That is it, you are done.' },
+];
+
+/* ---------- Three.js scene ---------- */
+const canvas = $('#c'), viewer = $('.viewer');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 3000);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = .1;
+controls.minDistance = 15; controls.maxDistance = 900;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8796a5, .78));
+const sun = new THREE.DirectionalLight(0xffffff, .62); sun.position.set(90,170,130); scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, .28); fill.position.set(-110,60,-90); scene.add(fill);
+
+const floorMat = new THREE.MeshBasicMaterial({color:0xd3dadf});
+const floor = new THREE.Mesh(new THREE.CircleGeometry(160, 64), floorMat);
+floor.rotation.x = -Math.PI/2; floor.position.y = -.05; scene.add(floor);
+const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+const g2 = sc.getContext('2d'); const grd = g2.createRadialGradient(64,64,4,64,64,64);
+grd.addColorStop(0,'rgba(0,0,0,.22)'); grd.addColorStop(1,'rgba(0,0,0,0)'); g2.fillStyle = grd; g2.fillRect(0,0,128,128);
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1,1), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(sc), transparent:true, depthWrite:false}));
+shadow.rotation.x = -Math.PI/2; shadow.position.y = .02; shadow.scale.set(95,45,1); scene.add(shadow);
+
+const wallMat = new THREE.MeshStandardMaterial({color:0xc9d1d7, transparent:true, opacity:.35, side:THREE.DoubleSide, depthWrite:false});
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(150, 200), wallMat);
+wall.position.set(0, 100, zWall); scene.add(wall);
+
+const WHITE = 0xF3F2ED, MARK = 0xF0A42A, EDGE = 0x6c7781, MARK_EDGE = 0x8a5600;
+const boards = {};
+for (const [id, p] of Object.entries(PARTS)) {
+  const geo = new THREE.BoxGeometry(...p.size);
+  const mat = new THREE.MeshStandardMaterial({color:WHITE, roughness:.85, metalness:0, transparent:true});
+  const mesh = new THREE.Mesh(geo, mat);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({color:EDGE, transparent:true}));
+  mesh.add(edges); scene.add(mesh);
+  boards[id] = {mesh, mat, edgeMat:edges.material, final:V(p.pos), p};
+}
+
+const M = {
+  wood:  () => new THREE.MeshStandardMaterial({color:0xC69B62, roughness:.9}),
+  steel: () => new THREE.MeshStandardMaterial({color:0x8d969e, roughness:.4, metalness:.6}),
+  zinc:  () => new THREE.MeshStandardMaterial({color:0xb7bfc6, roughness:.35, metalness:.5}),
+  dark:  () => new THREE.MeshStandardMaterial({color:0x2a3138, roughness:.6}),
+  plas:  () => new THREE.MeshStandardMaterial({color:0xE2E0D8, roughness:.7}),
+  cap:   () => new THREE.MeshStandardMaterial({color:MARK, roughness:.6}),
+};
+const cyl = (r, h, mat, y=0, seg=14) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg), mat); m.position.y = y; return m; };
+function makeHW(type){
+  const g = new THREE.Group();
+  if (type==='a' || type==='i'){ const s=M.steel(); g.add(cyl(.2,3.5,s), cyl(.42,.2,s,1.75)); }
+  else if (type==='g'){ const s=M.steel(); g.add(cyl(.2,1.2,s), cyl(.42,.2,s,.6)); }
+  else if (type==='b'){ g.add(cyl(.3,3,M.wood())); }
+  else if (type==='c'){ g.add(cyl(.3,5,M.wood())); }
+  else if (type==='d'){ const s=M.zinc(); g.add(cyl(.28,3.5,s)); const h=new THREE.Mesh(new THREE.SphereGeometry(.5,12,10), s); h.position.y=-1.75; g.add(h); }
+  else if (type==='e'){ g.add(cyl(.75,.95,M.zinc(),0,20)); const sl=new THREE.Mesh(new THREE.BoxGeometry(1.1,.08,.18), M.dark()); sl.position.y=.48; g.add(sl);
+                        const gap=new THREE.Mesh(new THREE.BoxGeometry(.5,.08,.6), M.dark()); gap.position.set(0,.48,.45); g.add(gap); }
+  else if (type==='k'){ const s=M.steel(); g.add(cyl(.07,1.6,s,0,6), cyl(.17,.06,s,.8,8)); }
+  else if (type==='l'){ const s=M.steel(); g.add(cyl(.09,2,s,0,6), cyl(.3,.15,s,1,10)); }
+  else if (type==='j'){ g.add(cyl(.75,.12,M.cap(),0,20)); }
+  else if (type==='h'){ g.add(cyl(.35,3,M.plas())); }
+  else if (type==='f'){ const s=M.zinc(); const a=new THREE.Mesh(new THREE.BoxGeometry(1.2,.2,2.8),s); a.position.set(0,.1,1.4);
+                        const b=new THREE.Mesh(new THREE.BoxGeometry(1.2,2.8,.2),s); b.position.set(0,1.4,.1); g.add(a,b); }
+  const mats = []; g.traverse(o => { if (o.material){ o.material.transparent = true; mats.push(o.material); } });
+  g.userData.mats = mats; g.visible = false; scene.add(g); return g;
+}
+const UP = new THREE.Vector3(0,1,0);
+STEPS.forEach(st => st.hw.forEach(item => {
+  item.obj = makeHW(item.type);
+  item.final = V(item.pos); item.dirV = V(item.dir).normalize();
+  item.baseQ = new THREE.Quaternion();
+  if (!item.raw) item.baseQ.setFromUnitVectors(UP, item.dirV);
+}));
+
+/* ---------- Theme ---------- */
+function applyTheme(){
+  const cs = getComputedStyle(document.documentElement);
+  scene.background = new THREE.Color(cs.getPropertyValue('--stage').trim() || '#E3E8EB');
+  floorMat.color.set(cs.getPropertyValue('--floor').trim() || '#D3DADF');
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+/* ---------- Step state & animation ---------- */
+let cur = 0, progress = 1, playing = false, t0 = 0;
+const DUR = 3400;
+const phaseLocal = (p, [s,e]) => e <= s ? (p >= s ? 1 : 0) : clamp((p - s) / (e - s));
+const tmp = new THREE.Vector3(), qSpin = new THREE.Quaternion();
+
+function applyFrame(p){
+  const st = STEPS[cur];
+  const mp = st.movePhase || [0,1];
+  for (const [id, b] of Object.entries(boards)){
+    const vis = st.show.includes(id);
+    b.mesh.visible = vis; if (!vis) continue;
+    const isNew = st.add.includes(id);
+    tmp.copy(b.final);
+    let op = 1;
+    if (st.explode) tmp.addScaledVector(V(EXPLODE[id]), ease(clamp(p/.85)));
+    if (st.move && st.move[id]){
+      const l = phaseLocal(p, mp);
+      tmp.addScaledVector(V(st.move[id]), 1 - ease(l));
+      if (isNew) op = clamp(p / Math.max(.01, mp[0] + .1));
+    } else if (isNew) op = clamp(p / .2);
+    b.mesh.position.copy(tmp);
+    b.mat.color.setHex(isNew ? MARK : WHITE);
+    b.edgeMat.color.setHex(isNew ? MARK_EDGE : EDGE);
+    b.mat.opacity = op; b.edgeMat.opacity = op;
+    b.mat.depthWrite = op > .98;
+  }
+  for (const s of STEPS) for (const item of s.hw){
+    if (s !== st){ item.obj.visible = false; continue; }
+    const l = phaseLocal(p, item.phase);
+    const started = item.dist === 0 || p >= item.phase[0];
+    item.obj.visible = started;
+    if (!started) continue;
+    tmp.copy(item.final).addScaledVector(item.dirV, item.dist * (1 - ease(l)));
+    if (item.follow) tmp.addScaledVector(V(item.follow), 1 - ease(phaseLocal(p, mp)));
+    item.obj.position.copy(tmp);
+    item.obj.quaternion.copy(item.baseQ);
+    if (item.spin){ qSpin.setFromAxisAngle(UP, ease(phaseLocal(p, item.spin)) * Math.PI * .75); item.obj.quaternion.multiply(qSpin); }
+    const op = item.dist === 0 ? 1 : clamp(l * 5);
+    item.obj.userData.mats.forEach(m => { m.opacity = op; });
+  }
+  wall.visible = !!st.wall; wallMat.opacity = .35 * clamp(p / .15);
+}
+
+/* ---------- Camera framing ---------- */
+let camTween = null, userMoved = false;
+function framing(st){
+  const box = new THREE.Box3();
+  if (st.fitBox){ box.set(V(st.fitBox[0]), V(st.fitBox[1])); }
+  else st.show.forEach(id => {
+    const b = boards[id], c = b.final.clone();
+    if (st.explode) c.add(V(EXPLODE[id]));
+    const h = V(b.p.size).multiplyScalar(.5);
+    box.expandByPoint(c.clone().sub(h)); box.expandByPoint(c.clone().add(h));
+  });
+  const center = box.getCenter(new THREE.Vector3());
+  const r = box.getSize(new THREE.Vector3()).length() / 2;
+  const v = THREE.MathUtils.degToRad(camera.fov / 2);
+  const hz = Math.atan(Math.tan(v) * camera.aspect);
+  const dist = r / Math.sin(Math.min(v, hz)) * .92;
+  return {target:center, pos:center.clone().addScaledVector(V(st.cam).normalize(), dist)};
+}
+function frameStep(animate){
+  const f = framing(STEPS[cur]);
+  userMoved = false;
+  if (!animate || reduced){ camera.position.copy(f.pos); controls.target.copy(f.target); camTween = null; controls.update(); return; }
+  camTween = {t0:performance.now(), fromP:camera.position.clone(), fromT:controls.target.clone(), toP:f.pos, toT:f.target};
+}
+controls.addEventListener('start', () => { camTween = null; userMoved = true; });
+
+/* ---------- Labels ---------- */
+const labelsEl = $('#labels');
+let labels = [], showLabels = true;
+function buildLabels(){
+  labelsEl.textContent = '';
+  const st = STEPS[cur];
+  labels = st.show.map(id => {
+    const el = document.createElement('span');
+    el.className = 'lbl' + (st.add.includes(id) ? ' new' : '');
+    el.textContent = PARTS[id].num; labelsEl.appendChild(el);
+    const p = PARTS[id];
+    return {el, get: () => boards[id].mesh.position.clone().add(new THREE.Vector3(0,0, p.back ? -.6 : p.size[2]/2 + .4))};
+  });
+  const seen = new Set();
+  st.hw.forEach(item => {
+    if (seen.has(item.type) || item.already) return; seen.add(item.type);
+    const el = document.createElement('span'); el.className = 'lbl hw'; el.textContent = item.type; labelsEl.appendChild(el);
+    labels.push({el, item, get: () => item.obj.position.clone().addScaledVector(item.dirV, item.raw ? 3.5 : 2.6)});
+  });
+}
+function placeLabels(){
+  labelsEl.hidden = !showLabels; if (!showLabels) return;
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  for (const L of labels){
+    if (L.item && !L.item.obj.visible){ L.el.style.visibility = 'hidden'; continue; }
+    const v = L.get().project(camera);
+    const ok = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1;
+    L.el.style.visibility = ok ? 'visible' : 'hidden';
+    L.el.style.transform = `translate(${((v.x+1)/2*w).toFixed(1)}px, ${((1-v.y)/2*h).toFixed(1)}px) translate(-50%,-50%)`;
+  }
+}
+
+/* ---------- Panel ---------- */
+const nav = $('#stepnav'), body = $('#stepBody'), scrub = $('#scrub');
+STEPS.forEach((st, i) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = st.nav;
+  b.setAttribute('aria-label', i === 0 ? 'Parts check' : st.nav === 'Caps' ? 'Screw caps' : 'Step ' + st.nav);
+  b.addEventListener('click', () => go(i)); nav.appendChild(b);
+});
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function renderPanel(){
+  const st = STEPS[cur];
+  [...nav.children].forEach((b, i) => {
+    if (i === cur) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current');
+    b.classList.toggle('done', i < cur);
+  });
+  nav.children[cur].scrollIntoView({block:'nearest', inline:'center', behavior: reduced ? 'auto' : 'smooth'});
+  const kicker = st.kicker || `Step ${st.nav} of 8`;
+  let h = `<p class="kicker">${kicker}</p><h2>${esc(st.title)}</h2><ol class="do">${st.do.map(d => `<li><span>${esc(d)}</span></li>`).join('')}</ol>`;
+  if (st.parts){
+    const uniq = [...new Map(Object.values(PARTS).map(p => [p.num, p])).values()].sort((a,b) => a.num - b.num);
+    h += `<h3>Boards</h3><div class="chips">${uniq.map(p => `<span class="chip"><b>${p.num}</b>${p.name}${p.num==='6'?' <em>×2</em>':''}</span>`).join('')}</div>`;
+    h += `<h3>Hardware</h3><table class="hwtable"><tbody>${Object.entries(HW).map(([k,v]) =>
+      `<tr><td><span class="l">${k}</span></td><td>${v.name}</td><td>${v.size}</td><td>${v.qty}</td></tr>`).join('')}</tbody></table>`;
+  } else {
+    const counts = {};
+    st.hw.forEach(i => { if (!i.already) counts[i.type] = (counts[i.type] || 0) + 1; });
+    const chips = [
+      ...(st.useParts || []).map(n => `<span class="chip"><b>${n}</b>${PARTS[Object.keys(PARTS).find(k => PARTS[k].num === n)].name}</span>`),
+      ...Object.entries(counts).map(([k,n]) => `<span class="chip hwc"><b>${k}</b>${HW[k].name}<em>×${n}</em></span>`)
+    ];
+    if (chips.length) h += `<h3>You need</h3><div class="chips">${chips.join('')}</div>`;
+  }
+  h += `<p class="tip"><strong>Tip:</strong> ${esc(st.tip)}</p>`;
+  if (st.warn) h += `<p class="warn"><strong>Safety:</strong> ${esc(st.warn)}</p>`;
+  body.innerHTML = h; body.scrollTop = 0;
+  $('#prev').disabled = cur === 0;
+  $('#next').textContent = cur === STEPS.length - 1 ? 'Start over' : cur === 0 ? 'Start step 1' : `Next: ${STEPS[cur+1].nav === 'Caps' ? 'caps' : 'step ' + STEPS[cur+1].nav}`;
+}
+
+function play(){ if (reduced){ progress = 1; playing = false; } else { progress = 0; playing = true; t0 = performance.now(); } }
+function go(i){
+  cur = (i + STEPS.length) % STEPS.length;
+  try { localStorage.setItem('bookshelf-step', String(cur)); } catch(e){}
+  renderPanel(); buildLabels(); frameStep(true); play();
+}
+$('#next').addEventListener('click', () => go(cur + 1));
+$('#prev').addEventListener('click', () => { if (cur > 0) go(cur - 1); });
+$('#replay').addEventListener('click', play);
+$('#resetView').addEventListener('click', () => frameStep(true));
+$('#toggleLabels').addEventListener('click', e => { showLabels = !showLabels; e.currentTarget.setAttribute('aria-pressed', String(showLabels)); });
+scrub.addEventListener('input', () => { playing = false; progress = scrub.value / 1000; });
+document.addEventListener('keydown', e => {
+  if (e.target === scrub) return;
+  if (e.key === 'ArrowRight') go(cur + 1);
+  else if (e.key === 'ArrowLeft' && cur > 0) go(cur - 1);
+});
+
+/* Keep the tablet screen awake while building */
+let lock = null;
+async function wake(){ try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); } } catch(e){} }
+document.addEventListener('pointerdown', wake, {once:true});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+
+/* ---------- Resize & loop ---------- */
+function resize(){
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  if (!userMoved) frameStep(false);
+}
+new ResizeObserver(resize).observe(viewer);
+
+function loop(now){
+  if (playing){ progress = clamp((now - t0) / DUR); if (progress >= 1) playing = false; scrub.value = Math.round(progress * 1000); }
+  if (camTween){
+    const k = ease(clamp((now - camTween.t0) / 800));
+    camera.position.lerpVectors(camTween.fromP, camTween.toP, k);
+    controls.target.lerpVectors(camTween.fromT, camTween.toT, k);
+    if (k >= 1) camTween = null;
+  }
+  controls.update();
+  applyFrame(progress);
+  renderer.render(scene, camera);
+  placeLabels();
+  requestAnimationFrame(loop);
+}
+
+let start = 0;
+try { const s = parseInt(localStorage.getItem('bookshelf-step'), 10); if (s >= 0 && s < STEPS.length) start = s; } catch(e){}
+cur = start; renderPanel(); buildLabels(); resize(); frameStep(false); play();
+requestAnimationFrame(loop);
+})();
+</script>
+</html>
