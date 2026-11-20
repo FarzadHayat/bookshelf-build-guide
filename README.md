@@ -4,7 +4,9 @@ An interactive 3D, step-by-step assembly guide for a flat-pack 4 tier bookshelf,
 
 **Try it:** https://farzadhayat.github.io/bookshelf-build-guide/
 
-![Step 6 of the guide: the two halves of the bookshelf joining, with part numbers and hardware labelled](screenshot.png)
+![Step 6 of the guide in dark theme: the two halves of the bookshelf joining, with part numbers and hardware labelled](screenshot.png)
+
+![Short demo of the guide animating through several steps](demo.gif)
 
 ## What it does
 

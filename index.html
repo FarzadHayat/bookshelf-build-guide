@@ -401,6 +401,7 @@ function framing(st){
     if (st.explode) c.add(V(EXPLODE[id]));
     const h = V(b.p.size).multiplyScalar(.5);
     box.expandByPoint(c.clone().sub(h)); box.expandByPoint(c.clone().add(h));
+    if (st.move && st.move[id]){ const m = c.clone().add(V(st.move[id])); box.expandByPoint(m.clone().sub(h)); box.expandByPoint(m.clone().add(h)); }
   });
   const center = box.getCenter(new THREE.Vector3());
   const r = box.getSize(new THREE.Vector3()).length() / 2;
